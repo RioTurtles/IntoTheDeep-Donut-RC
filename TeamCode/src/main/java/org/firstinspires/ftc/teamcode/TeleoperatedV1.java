@@ -1,14 +1,16 @@
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.hardware.rev.RevBlinkinLedDriver;
+import com.qualcomm.hardware.rev.RevBlinkinLedDriver.BlinkinPattern;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 @TeleOp
 public class TeleoperatedV1 extends LinearOpMode {
+    boolean specimenScored;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -21,8 +23,8 @@ public class TeleoperatedV1 extends LinearOpMode {
         ElapsedTime timer1 = new ElapsedTime();
         ElapsedTime timer2 = new ElapsedTime();
 
+        specimenScored = false;
         boolean reverting = false;
-        boolean specimenScored = false;
 
         waitForStart();
         robot.resetIMUYaw();
@@ -70,16 +72,13 @@ public class TeleoperatedV1 extends LinearOpMode {
                     }
 
                     if (gamepad.right_bumper && !lastGamepad.right_bumper) {
-                        if (robot.intakeUp) robot.intakePosition();
-                        else robot.transferPosition();
+                        if (robot.intakeUp) {robot.intakePosition(); robot.intakeOn();}
+                        else {robot.transferPosition(); robot.intakeOff();}
                     }
 
                     if (gamepad.circle && !lastGamepad.circle) {
-                        if (!robot.intakeReversed) robot.intakeReverse();
-                        else {
-                            if (robot.intakeOn) robot.intakeOff();
-                            else robot.intakeReverse();
-                        }
+                        if (robot.intakeReversed) robot.intakeOn();
+                        else robot.intakeReverse();
                     }
 
                     if (gamepad.options && !lastGamepad.options) {
@@ -267,21 +266,52 @@ public class TeleoperatedV1 extends LinearOpMode {
                 }
             }
 
-            if (gamepad.share) robot.sliders.forcePower(-1);
-            else robot.sliders.setPositionEncoder(robot.sliders.getTargetPosition());
+            if (state == State.ASCENT) {
+                robot.intakeOff();
+                robot.transferPosition();
+
+                if (gamepad.right_trigger > 0) robot.tilting.setPower(0.2);
+                else if (gamepad.left_trigger > 0) robot.tilting.setPower(-0.2);
+                else robot.tilting.setPower(0);
+
+                if (gamepad.right_bumper) {
+                    robot.sliders.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+                    robot.sliders.setPower(1);
+                } else if (gamepad.left_bumper) {
+                    robot.sliders.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+                    robot.sliders.setPower(-1);
+                } else {
+                    robot.sliders.setPositionEncoder(robot.sliders.getCurrentPosition());
+                }
+
+                if (gamepad.triangle && !lastGamepad.triangle) {
+                    robot.retractSlider();
+                    state = State.INIT;
+                }
+
+                continue;
+            }
+
+            // Intentionally require both current and last gamepad.
+            if (gamepad.share && lastGamepad.share) robot.sliders.forcePower(-1);
+            else if (!gamepad.share && lastGamepad.share) robot.sliders.setPower(0);
 
             if (gamepad.touchpad) robot.resetIMUYaw();
+            if (gamepad.square && !lastGamepad.touchpad) state = State.ASCENT;
+
             if (operator.triangle) robot.scoringHeight = "High";
             if (operator.cross) robot.scoringHeight = "Low";
             if (operator.square) robot.scoringMode = "Basket";
             if (operator.circle) robot.scoringMode = "Chamber";
 
             robot.drivetrain.remote(vertical, horizontal, pivot, heading);
+            robot.leds.setPattern(getBlinkinPattern(robot.scoringMode, robot.bestColour(), state));
 
             telemetry.addData("State", state);
             telemetry.addLine();
             telemetry.addData("Mode", robot.scoringMode);
             telemetry.addData("Height", robot.scoringHeight);
+            telemetry.addData("Light", robot.colour.getLightDetected());
             telemetry.addData("Best Colour", robot.bestColour());
             telemetry.addLine();
             telemetry.addData("Slider Height L", hardwareMap.get(DcMotorEx.class, "sliderL").getCurrentPosition());
@@ -292,12 +322,49 @@ public class TeleoperatedV1 extends LinearOpMode {
         }
     }
 
-    public RevBlinkinLedDriver.BlinkinPattern getBlinkinPattern(String colour, State state) {
-        // TODO: continue writing after tuning low chamber and testing rigging
-        if (state == State.INIT) {
+    public BlinkinPattern getBlinkinPattern(String mode, String colour, State state) {
+        switch (state) {
+            case INIT: return BlinkinPattern.GREEN;
+            case INTAKE_READY:
+                if (mode.equals("Basket")) {
+                    switch (colour) {
+                        case "Blue": return BlinkinPattern.HEARTBEAT_BLUE;
+                        case "Red": return BlinkinPattern.HEARTBEAT_RED;
+                        case "Yellow": return BlinkinPattern.HEARTBEAT_WHITE;
+                        case "None": return BlinkinPattern.HEARTBEAT_GRAY;
+                    }
+                } else {
+                    return BlinkinPattern.STROBE_WHITE;
+                }
+            case INTAKE_TRANSITION_BETWEEN_MODES: return BlinkinPattern.CONFETTI;
 
+            case TRANSFER:
+                switch (colour) {
+                    case "Blue": return BlinkinPattern.BLUE;
+                    case "Red": return BlinkinPattern.RED;
+                    case "Yellow": return BlinkinPattern.YELLOW;
+                }
+
+            case TRANSITION_TO_SCORING_PRE:
+            case TRANSITION_TO_SCORING:
+                return BlinkinPattern.DARK_RED;
+
+            case SCORING_SAMPLE:
+                switch (colour) {
+                    case "Blue": return BlinkinPattern.LIGHT_CHASE_BLUE;
+                    case "Red": return BlinkinPattern.LIGHT_CHASE_RED;
+                    case "Yellow": return BlinkinPattern.WHITE;
+                }
+            case SCORING_SPECIMEN:
+                if (specimenScored) return BlinkinPattern.LIME;
+                else return BlinkinPattern.COLOR_WAVES_FOREST_PALETTE;
+
+            case RETURNING:
+                return BlinkinPattern.VIOLET;
+
+            default:
+                return BlinkinPattern.RAINBOW_RAINBOW_PALETTE;
         }
-        return null;
     }
 
     enum State {
@@ -309,6 +376,7 @@ public class TeleoperatedV1 extends LinearOpMode {
         TRANSITION_TO_SCORING_PRE,
         SCORING_SAMPLE,
         SCORING_SPECIMEN,
-        RETURNING
+        RETURNING,
+        ASCENT
     }
 }

@@ -6,10 +6,8 @@ import com.qualcomm.hardware.rev.RevHubOrientationOnRobot.UsbFacingDirection;
 import com.qualcomm.robotcore.hardware.CRServoImplEx;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
-import com.qualcomm.robotcore.hardware.NormalizedRGBA;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 
@@ -44,8 +42,9 @@ public class Project2Hardware extends RobotTemplate {
                 "backRight", DcMotorSimple.Direction.REVERSE
         ));
 
+        drivetrain.setZeroPowerBehaviour(DcMotor.ZeroPowerBehavior.BRAKE);
         sliders = new DualMotorSystem("sliderL", "f", "sliderR", "r");
-        tilting = new DualMotorSystem("tiltingL", "f", "tiltingR", "r");
+        tilting = new DualMotorSystem("tiltingL", "r", "tiltingR", "f");
         intakeCoarse = new DualServoSystem("intakeUL", "f", "intakeUR", "f");
         intakeFine = new DualServoSystem("intakeLL", "r", "intakeLR", "f");
         linearExtension = new DualServoSystem("extensionL", "r", "extensionR", "f");
@@ -68,9 +67,12 @@ public class Project2Hardware extends RobotTemplate {
         sliders.addPreset("LowBasket", 3400);
         sliders.addPreset("HighBasket", 5700);
         sliders.addPreset("LowChamber", 1600);
-        sliders.addPreset("LowChamberL", 900);
+        sliders.addPreset("LowChamberL", 600);
         sliders.addPreset("HighChamber", 3900);
         sliders.addPreset("HighChamberL", 2900);
+        sliders.addPreset("Ascent", 1200);
+
+        tilting.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         linearExtension.addPreset(true, 0.5);
         linearExtension.addPreset(false, 0);
@@ -80,7 +82,7 @@ public class Project2Hardware extends RobotTemplate {
         intakeFine.addPreset("Transfer", 0.3);
         intakeCoarse.addPreset("Transfer", 0.4);
         
-        arm.addPreset("Transfer", 0.02);
+        arm.addPreset("Transfer", 0);
         arm.addPreset("Basket", 0.73);
         arm.addPreset("Chamber", 1);
 
@@ -137,9 +139,11 @@ public class Project2Hardware extends RobotTemplate {
     public boolean intakeDetected() {return colour.getLightDetected() > 0.75;}
 
     public String bestColour() {
-        double max = Math.max(colour.red(), Math.max(colour.green(), colour.blue()));
-        if (max == colour.red()) return "Red";
-        else if (max == colour.blue()) return "Blue";
-        else return "Green";
+        if (intakeDetected()) {
+            double max = Math.max(colour.red(), Math.max(colour.green(), colour.blue()));
+            if (max == colour.red()) return "Red";
+            else if (max == colour.blue()) return "Blue";
+            else return "Yellow";
+        } else return "None";
     }
 }
