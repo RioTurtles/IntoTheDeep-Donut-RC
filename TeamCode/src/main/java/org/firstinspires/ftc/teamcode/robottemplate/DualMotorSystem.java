@@ -9,7 +9,6 @@ import java.util.Map;
 public class DualMotorSystem extends MultipleMotorSystem implements RobotSubsystemTemplate {
     final private DcMotor left, right;
     private double speed;
-    private int offsetLeft, offsetRight;
     Map<Object, Integer> presets;
     public Object currentPreset = null;
 

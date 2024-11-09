@@ -4,13 +4,21 @@ import com.qualcomm.robotcore.hardware.PwmControl;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MultipleServoSystem {
     private ServoImplEx[] servos;
+    Map<Integer, Double> offsets;
     
-    public MultipleServoSystem(ServoImplEx... servos) {this.servos = servos;}
+    public MultipleServoSystem(ServoImplEx... servos) {
+        offsets = new HashMap<>();
+        this.servos = servos;
+    }
+
     public MultipleServoSystem(String... servoNames) {
         servos = new ServoImplEx[] {};
+        offsets = new HashMap<>();
         ArrayList<ServoImplEx> tempList = new ArrayList<>();
 
         for (String motorName : servoNames) {
@@ -31,8 +39,18 @@ public class MultipleServoSystem {
     }
 
     public void setPosition(double position) {
-        for (ServoImplEx servo : servos) {servo.setPosition(position);}
+        int index = 0;
+        for (ServoImplEx servo : servos) {
+            servo.setPosition(position + offsets.getOrDefault(index, (double) 0));
+            index++;
+        }
+    }
+
+    public double getPosition() {
+        return servos[0].getPosition() + offsets.getOrDefault(0, (double) 0);
     }
 
     public ServoImplEx.Direction getDirection(int index) {return servos[index].getDirection();}
+
+    public void setOffsets(int index, double value) {offsets.put(index, value);}
 }

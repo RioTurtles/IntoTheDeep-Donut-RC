@@ -65,22 +65,23 @@ public class Project2Hardware extends RobotTemplate {
         sliders.addPreset("RetractBasket", 0);
         sliders.addPreset("RetractChamber", 1100);
         sliders.addPreset("LowBasket", 3400);
-        sliders.addPreset("HighBasket", 5700);
+        sliders.addPreset("HighBasket", 5800);
         sliders.addPreset("LowChamber", 1600);
         sliders.addPreset("LowChamberL", 600);
         sliders.addPreset("HighChamber", 3900);
         sliders.addPreset("HighChamberL", 2900);
-        sliders.addPreset("Ascent", 1200);
+        sliders.addPreset("Ascent", 2900);
 
         tilting.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         linearExtension.addPreset(true, 0.5);
         linearExtension.addPreset(false, 0);
 
-        intakeFine.addPreset("Intake", 0);
-        intakeCoarse.addPreset("Intake", 0.075);
-        intakeFine.addPreset("Transfer", 0.3);
-        intakeCoarse.addPreset("Transfer", 0.4);
+        intakeCoarse.setOffsets(0, +0.065);
+        intakeFine.addPreset("Intake", 0.02);
+        intakeCoarse.addPreset("Intake", 0.12);
+        intakeFine.addPreset("Transfer", 0.22);
+        intakeCoarse.addPreset("Transfer", 0.935);
         
         arm.addPreset("Transfer", 0);
         arm.addPreset("Basket", 0.73);
@@ -115,7 +116,7 @@ public class Project2Hardware extends RobotTemplate {
     }
 
     public void intakeOff() {intakeL.setPower(0); intakeR.setPower(0); intakeOn = false;}
-    public void clawOpen() {claw.setPosition(0.25); clawOpen = true;}
+    public void clawOpen() {claw.setPosition(0.14); clawOpen = true;}
     public void clawClose() {claw.setPosition(0); clawOpen = false;}
 
     public void raiseSlider() {sliders.setPositionPreset(scoringHeight + scoringMode);}
