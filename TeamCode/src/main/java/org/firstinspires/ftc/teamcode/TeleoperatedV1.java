@@ -3,7 +3,6 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.hardware.rev.RevBlinkinLedDriver.BlinkinPattern;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -11,6 +10,9 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 @TeleOp(name="TeleOp v1.2")
 public class TeleoperatedV1 extends LinearOpMode {
     boolean specimenScored;
+    boolean initialExtension;
+    boolean retracting;
+    boolean reverting;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -22,9 +24,11 @@ public class TeleoperatedV1 extends LinearOpMode {
         Gamepad lastOperator = new Gamepad();
         ElapsedTime timer1 = new ElapsedTime();
         ElapsedTime timer2 = new ElapsedTime();
+        ElapsedTime timer3 = new ElapsedTime();
 
         specimenScored = false;
-        boolean reverting = false;
+        reverting = false;
+        retracting = false;
 
         waitForStart();
         robot.resetIMUYaw();
@@ -91,7 +95,37 @@ public class TeleoperatedV1 extends LinearOpMode {
                         timer1.reset();
                     }
 
-                    robot.linearExtension.setPositionPreset(gamepad.right_trigger > 0);
+                    if (gamepad.left_trigger > 0 && lastGamepad.left_trigger > 0) {
+                        robot.linearExtension.setPositionPreset(true);
+                        robot.intakeExtend();
+                        robot.intakeOn();
+                    } else if (!(gamepad.left_trigger > 0) && lastGamepad.left_trigger > 0) {
+                        retracting = true;
+                        timer3.reset();
+                        robot.intakeOff();
+                        robot.linearExtension.setPositionPreset(false);
+                    }
+                    
+                    if (gamepad.right_trigger > 0 && lastGamepad.right_trigger > 0) {
+                        if (initialExtension) {
+                            timer3.reset();
+                            initialExtension = false;
+                        }
+
+                        robot.linearExtension.setPositionPreset(true);
+                        robot.intakeOn();
+                        if (timer3.milliseconds() > 400) robot.intakeExtend();
+                    } else if (!(gamepad.right_trigger > 0) && lastGamepad.right_trigger > 0) {
+                        robot.transferPosition();
+                        robot.intakeOff();
+                        robot.linearExtension.setPositionPreset(false);
+                        initialExtension = true;
+                    }
+
+                    if (retracting && timer3.milliseconds() > 500) {
+                        robot.transferPosition();
+                        retracting = false;
+                    }
                 } else if (robot.scoringMode.equals("Chamber")) {
                     robot.armUp();
                     if (gamepad.right_trigger > 0 && !(lastGamepad.right_trigger > 0)) {
@@ -172,7 +206,7 @@ public class TeleoperatedV1 extends LinearOpMode {
             if (state == State.TRANSITION_TO_SCORING) {
                 if (!reverting || (gamepad.right_bumper && !lastGamepad.right_bumper)) {
                     robot.raiseSlider();
-                    if (robot.sliders.isInPosition()) {
+                    if (robot.sliders.isInPosition() || gamepad.left_trigger > 0) {
                         robot.armUp();
                         if (robot.scoringMode.equals("Basket")) state = State.SCORING_SAMPLE;
                         else state = State.SCORING_SPECIMEN;

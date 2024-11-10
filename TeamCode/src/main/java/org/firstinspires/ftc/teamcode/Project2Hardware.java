@@ -63,7 +63,7 @@ public class Project2Hardware extends RobotTemplate {
         claw.setDirection(Servo.Direction.FORWARD);
 
         sliders.addPreset("RetractBasket", 0);
-        sliders.addPreset("RetractChamber", 1100);
+        sliders.addPreset("RetractChamber", 1175);
         sliders.addPreset("LowBasket", 3400);
         sliders.addPreset("HighBasket", 5800);
         sliders.addPreset("LowChamber", 1600);
@@ -80,10 +80,12 @@ public class Project2Hardware extends RobotTemplate {
         intakeCoarse.setOffsets(0, +0.065);
         intakeFine.addPreset("Intake", 0.02);
         intakeCoarse.addPreset("Intake", 0.12);
+        intakeFine.addPreset("Extend", 0);
+        intakeCoarse.addPreset("Extend", 0.145);
         intakeFine.addPreset("Transfer", 0.22);
         intakeCoarse.addPreset("Transfer", 0.935);
         
-        arm.addPreset("Transfer", 0);
+        arm.addPreset("Transfer", 0.02);
         arm.addPreset("Basket", 0.73);
         arm.addPreset("Chamber", 1);
 
@@ -116,7 +118,7 @@ public class Project2Hardware extends RobotTemplate {
     }
 
     public void intakeOff() {intakeL.setPower(0); intakeR.setPower(0); intakeOn = false;}
-    public void clawOpen() {claw.setPosition(0.14); clawOpen = true;}
+    public void clawOpen() {claw.setPosition(0.16); clawOpen = true;}
     public void clawClose() {claw.setPosition(0); clawOpen = false;}
 
     public void raiseSlider() {sliders.setPositionPreset(scoringHeight + scoringMode);}
@@ -128,6 +130,12 @@ public class Project2Hardware extends RobotTemplate {
     public void intakePosition() {
         intakeCoarse.setPositionPreset("Intake");
         intakeFine.setPositionPreset("Intake");
+        intakeUp = false;
+    }
+
+    public void intakeExtend() {
+        intakeCoarse.setPositionPreset("Extend");
+        intakeFine.setPositionPreset("Extend");
         intakeUp = false;
     }
     
