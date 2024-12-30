@@ -8,6 +8,9 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 @TeleOp(name="TeleOp v2.0")
 public class TeleoperatedV2 extends LinearOpMode {
     boolean reverting, initialExtension, retracting;
+    boolean quickTransferQueued, fullTransferQueued;
+    double current;
+    Double target;
 
     @Override
     public void runOpMode() {
@@ -24,6 +27,8 @@ public class TeleoperatedV2 extends LinearOpMode {
         reverting = false;
         initialExtension = false;
         retracting = false;
+        quickTransferQueued = false;
+        fullTransferQueued = false;
 
         robot.scoringMode = "Basket";
         robot.scoringHeight = "High";
@@ -40,23 +45,7 @@ public class TeleoperatedV2 extends LinearOpMode {
             double pivot = gamepad.right_stick_x;
             double heading = robot.getIMUYaw();
 
-            if (state == State.INITIALISED) {
-                robot.bucket.setPositionPreset("Transfer");
-                robot.intake.setTransfer();
-                robot.linearExtension.setPositionPreset(false);
-
-                if (gamepad.right_bumper) {
-                    robot.intake.pwmEnable();
-                    robot.intake.setIntake();
-                    robot.intakeOn();
-                    state = State.INTAKE_READY;
-                    continue;
-                }
-            }
-
-            if (state == State.INTAKE_READY) {
-                robot.sliders.setPower(0);
-                robot.bucket.setPositionPreset("Transfer");
+            IntakeControls intakeControls = () -> {
                 if (gamepad.left_bumper && !lastGamepad.left_bumper) {
                     // Toggle intake on/off
                     if (robot.intakeReversed) robot.intakeOn();
@@ -76,19 +65,6 @@ public class TeleoperatedV2 extends LinearOpMode {
                     // Toggle intake direction (inwards/outwards)
                     if (robot.intakeReversed) robot.intakeOn();
                     else robot.intakeReverse();
-                }
-
-                if (gamepad.cross && !lastGamepad.cross) {
-                    // Full transfer (next state)
-                    robot.intakeSlow();
-                    state = State.TRANSFER_TRANSITION;
-                    timer1.reset();
-                }
-
-                if (gamepad.triangle && !lastGamepad.triangle) {
-                    // Quick transfer (next state)
-                    state = State.TRANSFERRING;
-                    timer1.reset();
                 }
 
                 if (gamepad.left_trigger > 0 && lastGamepad.left_trigger > 0) {
@@ -122,12 +98,46 @@ public class TeleoperatedV2 extends LinearOpMode {
                     robot.intake.setTransfer();
                     retracting = false;
                 }
+            };
+
+            if (state == State.INITIALISED) {
+                robot.bucket.setPositionPreset("Transfer");
+                robot.intake.setTransfer();
+                robot.linearExtension.setPositionPreset(false);
+
+                if (gamepad.right_bumper) {
+                    robot.intake.pwmEnable();
+                    robot.intake.setIntake();
+                    robot.intakeOn();
+                    state = State.INTAKE_READY;
+                    continue;
+                }
+            }
+
+            if (state == State.INTAKE_READY) {
+                robot.sliders.setPower(0);
+                robot.bucket.setPositionPreset("Transfer");
+                intakeControls.call();
+
+                if (gamepad.cross && !lastGamepad.cross) {
+                    // Full transfer (next state)
+                    robot.intakeSlow();
+                    state = State.TRANSFER_TRANSITION;
+                    timer1.reset();
+                }
+
+                if (gamepad.triangle && !lastGamepad.triangle) {
+                    // Quick transfer (next state)
+                    state = State.TRANSFERRING;
+                    timer1.reset();
+                }
             }
 
             if (state == State.TRANSFER_TRANSITION) {
                 robot.bucket.setPositionPreset("Transfer");
                 robot.intake.setTransfer();
                 if (timer1.milliseconds() > 700) {state = State.TRANSFERRING; timer1.reset();}
+                if (gamepad.triangle) {state = State.TRANSFERRING; timer1.reset();}
 
                 if (gamepad.left_bumper) {
                     robot.intake.pwmEnable();
@@ -211,6 +221,8 @@ public class TeleoperatedV2 extends LinearOpMode {
             if (state == State.RETURNING) {
                 robot.intake.pwmEnable();
                 robot.intake.setRaised();
+                intakeControls.call();
+
                 if (reverting) {
                     state = State.TRANSITION_TO_SCORING;
                     reverting = false;
@@ -219,27 +231,61 @@ public class TeleoperatedV2 extends LinearOpMode {
                     robot.retractSlider();
                     robot.bucket.setPositionPreset("Lift");
                     if (robot.sliders.isInPosition()) {
-                        state = State.INITIALISED;
+                        if (quickTransferQueued) state = State.TRANSFERRING;
+                        else if (fullTransferQueued) state = State.TRANSFER_TRANSITION;
+                        else state = State.INITIALISED;
                         timer1.reset();
                     }
                 }
+
+                if (gamepad.cross) fullTransferQueued = true;
+                if (gamepad.triangle) quickTransferQueued = true;
+                if (gamepad.options) {fullTransferQueued = false; quickTransferQueued = false;}
 
                 if (gamepad.left_bumper && !lastGamepad.left_bumper) reverting = true;
             }
 
             if (gamepad.touchpad) robot.resetIMUYaw();
+            if (operator.dpad_up) robot.scoringHeight = "High";
+            if (operator.dpad_down) robot.scoringHeight = "Low";
+//            if (operator.dpad_left) robot.scoringMode = "Bucket";
+//            if (operator.dpad_right) robot.scoringMode = "Chamber";
 
-            if (gamepad.dpad_up) robot.scoringHeight = "High";
-            if (gamepad.dpad_down) robot.scoringHeight = "Low";
-//            if (gamepad.dpad_left) robot.scoringMode = "Bucket";
-//            if (gamepad.dpad_right) robot.scoringMode = "Chamber";
+            // Align to targets
+            if (gamepad.dpad_up) target = 0.0;
+            else if (gamepad.dpad_left) target = 135.0;
+            else if (gamepad.dpad_right) target = 90.0;
+            else if (gamepad.dpad_down) target = 180.0;
+            else target = null;
+
+            if (target != null) {
+                double current = Math.toDegrees(heading);
+                double smallerAngle = Math.min(
+                        Math.abs(current - target),
+                        360 - Math.abs(current - target)
+                );
+
+                double resultant1 = current - smallerAngle;
+                if (resultant1 <= -180) resultant1 += 360;
+                double resultant2 = current + smallerAngle;
+                if (resultant2 > 180) resultant2 -= 360;
+
+                if (resultant1 == target) pivot = Math.toRadians(smallerAngle);
+                else if (resultant2 == target) pivot = Math.toRadians(-smallerAngle);
+            }
 
             robot.drivetrain.remote(vertical, horizontal, pivot, heading);
             telemetry.addData("STATE", state);
             telemetry.addData("BEST_COLOUR", robot.bestColour());
+            telemetry.addLine();
+            telemetry.addData("angle nowt", Math.toDegrees(heading));
+            telemetry.addData("align target", target);
+            telemetry.addData("result", Math.toDegrees(pivot));
             telemetry.update();
         }
     }
+
+    public interface IntakeControls {void call();}
 
     enum State {
         INITIALISED,
