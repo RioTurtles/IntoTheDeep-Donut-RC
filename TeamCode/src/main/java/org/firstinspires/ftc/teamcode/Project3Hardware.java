@@ -61,13 +61,13 @@ public class Project3Hardware extends RobotTemplate {
         intakeR.setDirection(DcMotorSimple.Direction.REVERSE);
 
         sliders.addPreset("RetractBasket", 0);
-        sliders.addPreset("RetractChamber", 1175);
+        sliders.addPreset("RetractChamber", 410);
         sliders.addPreset("LowBasket", 1700);
         sliders.addPreset("HighBasket", 2750);
-//        sliders.addPreset("LowChamber", 1600);
-//        sliders.addPreset("LowChamberL", 600);
-//        sliders.addPreset("HighChamber", 3900);
-//        sliders.addPreset("HighChamberL", 2900);
+        sliders.addPreset("LowChamber", 830);
+        sliders.addPreset("LowChamberL", 200);
+        sliders.addPreset("HighChamber", 1950);
+        sliders.addPreset("HighChamberL", 1200);
         sliders.addPreset("Ascent", 1900);
 
         linearExtension.addPreset(true, 0.5);
@@ -89,7 +89,10 @@ public class Project3Hardware extends RobotTemplate {
         private String current;
         public IntakeModule(String currentPosition) {this.current = currentPosition;}
         public boolean currentStateEq(String str) {return str.equalsIgnoreCase(current);}
+        final double offsetL = 0.0;
+        final double offsetR = 0.0;
 
+        @Deprecated
         public void unpack(double _LL, double _LR, double _UL, double _UR) {
             intakeLL.setPosition(_LL);
             intakeLR.setPosition(_LR);
@@ -97,6 +100,7 @@ public class Project3Hardware extends RobotTemplate {
             intakeUR.setPosition(_UR);
         }
 
+        @Deprecated
         private void unpack(double _LL, double _LR, double _UL, double _UR, String s, boolean u) {
             intakeLL.setPosition(_LL);
             intakeLR.setPosition(_LR);
@@ -104,6 +108,17 @@ public class Project3Hardware extends RobotTemplate {
             intakeUR.setPosition(_UR);
             current = s;
             intakeUp = u;
+        }
+
+        private void unpack(double _L, double _R, String s, boolean u) {
+            intakeUL.setPosition(_L);
+            intakeUR.setPosition(_R);
+            current = s;
+            intakeUp = u;
+        }
+
+        private void synchronous(double p, String s, boolean u) {
+            unpack(p + offsetL, p + offsetR, s, u);
         }
 
         public void pwmEnable() {
@@ -120,10 +135,10 @@ public class Project3Hardware extends RobotTemplate {
             intakeLR.setPwmDisable();
         }
 
-        public void setIntake() {unpack(0.02, 0.02, 0.185, 0.12, "intake", false);}
-        public void setExtended() {unpack(0, 0, 0.21, 0.145, "extended", false);}
-        public void setTransfer() {unpack(0.24, 0.24, 0.56, 0.77, "transfer", true);}
-        public void setRaised() {unpack(0.14, 0.14, 0.56, 0.77, "raised", true);}
+        public void setIntake() {synchronous(0.06, "intake", false);}
+        public void setExtended() {synchronous(0.077, "extended", false);}
+        public void setTransfer() {synchronous(0.56, "transfer", true);}
+        public void setRaised() {synchronous(0.5, "raised", true);}
     }
 
     public void intakeOn() {

@@ -9,6 +9,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 public class TeleoperatedV2 extends LinearOpMode {
     boolean reverting, initialExtension, retracting;
     boolean quickTransferQueued, fullTransferQueued;
+    boolean specimenScored;
     double current;
     Double target;
 
@@ -29,6 +30,7 @@ public class TeleoperatedV2 extends LinearOpMode {
         retracting = false;
         quickTransferQueued = false;
         fullTransferQueued = false;
+        specimenScored = false;
 
         robot.scoringMode = "Basket";
         robot.scoringHeight = "High";
@@ -110,25 +112,52 @@ public class TeleoperatedV2 extends LinearOpMode {
                     robot.intake.setIntake();
                     robot.intakeOn();
                     state = State.INTAKE_READY;
+                    timer1.reset();
                     continue;
                 }
             }
 
             if (state == State.INTAKE_READY) {
-                robot.sliders.setPower(0);
-                robot.bucket.setPositionPreset("Transfer");
-                intakeControls.call();
+                if (robot.scoringMode.equals("Basket")) {
+                    robot.sliders.setPower(0);
+                    robot.bucket.setPositionPreset("Transfer");
+                    intakeControls.call();
 
-                if (gamepad.cross && !lastGamepad.cross) {
-                    // Full transfer (next state)
-                    robot.intakeSlow();
-                    state = State.TRANSFER_TRANSITION;
-                    timer1.reset();
+                    if (gamepad.cross && !lastGamepad.cross) {
+                        // Full transfer (next state)
+                        robot.intakeSlow();
+                        state = State.TRANSFER_TRANSITION;
+                        timer1.reset();
+                    }
+
+                    if (gamepad.triangle && !lastGamepad.triangle) {
+                        // Quick transfer (next state)
+                        state = State.TRANSFERRING;
+                        timer1.reset();
+                    }
+                } else {
+                    if (timer1.milliseconds() > 1000) robot.intake.pwmDisable();
+
+                    robot.linearExtension.setPositionPreset(false);
+                    robot.intakeOff();
+                    robot.retractSlider();
+
+                    if (gamepad.right_bumper) {
+                        state = State.TRANSITION_TO_SCORING_CHAMBER;
+                        timer1.reset();
+                    }
                 }
 
-                if (gamepad.triangle && !lastGamepad.triangle) {
-                    // Quick transfer (next state)
-                    state = State.TRANSFERRING;
+                if (gamepad.share) {
+                    robot.retractSlider();
+                    robot.intakeOn();
+                    robot.intake.setIntake();
+                }
+
+                if (gamepad.options) {
+                    robot.retractSlider();
+                    robot.intakeOff();
+                    robot.intake.setTransfer();
                     timer1.reset();
                 }
             }
@@ -136,6 +165,7 @@ public class TeleoperatedV2 extends LinearOpMode {
             if (state == State.TRANSFER_TRANSITION) {
                 robot.bucket.setPositionPreset("Transfer");
                 robot.intake.setTransfer();
+                robot.intakeOff();
                 if (timer1.milliseconds() > 700) {state = State.TRANSFERRING; timer1.reset();}
                 if (gamepad.triangle) {state = State.TRANSFERRING; timer1.reset();}
 
@@ -149,11 +179,11 @@ public class TeleoperatedV2 extends LinearOpMode {
             }
 
             if (state == State.TRANSFERRING) {
-                if (timer1.milliseconds() > 250 || reverting) {
+                if (timer1.milliseconds() > 450 || reverting) {
                     if (gamepad.right_bumper && !lastGamepad.right_bumper) {
                         reverting = false;
                         robot.bucket.setPositionPreset("Lift");
-                        state = State.TRANSITION_TO_SCORING;
+                        state = State.TRANSITION_TO_SCORING_BASKET;
                     }
                     robot.intakeOff();
                     robot.intake.setRaised();
@@ -169,12 +199,12 @@ public class TeleoperatedV2 extends LinearOpMode {
                 }
             }
 
-            if (state == State.TRANSITION_TO_SCORING) {
+            if (state == State.TRANSITION_TO_SCORING_BASKET) {
                 if (!reverting || (gamepad.right_bumper && !lastGamepad.right_bumper)) {
                     robot.raiseSlider();
                     if (robot.sliders.isInPosition() || gamepad.left_trigger > 0) {
                         robot.bucket.setPositionPreset("Ready");
-                        state = State.SCORING_READY;
+                        state = State.SCORING_READY_BASKET;
                         timer1.reset();
                         continue;
                     }
@@ -197,7 +227,33 @@ public class TeleoperatedV2 extends LinearOpMode {
                 }
             }
 
-            if (state == State.SCORING_READY) {
+            if (state == State.TRANSITION_TO_SCORING_CHAMBER) {
+                if (!reverting || (gamepad.right_bumper && !lastGamepad.right_bumper)) {
+                    robot.raiseSlider();
+                    if (robot.sliders.isInPosition() || gamepad.left_trigger > 0) {
+                        specimenScored = false;
+                        state = State.SCORING_READY_CHAMBER;
+                        timer1.reset();
+                        continue;
+                    }
+                }
+
+                if (reverting) {
+                    robot.retractSlider();
+                    if (robot.sliders.isInPosition(20)) {
+                        state = State.INTAKE_READY;
+                        timer1.reset();
+                    }
+                }
+
+                if (gamepad.left_bumper && !lastGamepad.left_bumper) {
+                    reverting = true;
+                    timer2.reset();
+                    continue;
+                }
+            }
+
+            if (state == State.SCORING_READY_BASKET) {
                 robot.intake.pwmDisable();
                 robot.raiseSlider();
                 reverting = false;
@@ -207,7 +263,7 @@ public class TeleoperatedV2 extends LinearOpMode {
                 } else robot.bucket.setPositionPreset("Ready");
 
                 if (gamepad.left_bumper && !lastGamepad.left_bumper) {
-                    state = State.TRANSITION_TO_SCORING;
+                    state = State.TRANSITION_TO_SCORING_BASKET;
                     reverting = true;
                     timer1.reset();
                 }
@@ -218,13 +274,34 @@ public class TeleoperatedV2 extends LinearOpMode {
                 }
             }
 
+            if (state == State.SCORING_READY_CHAMBER) {
+                robot.intake.pwmDisable();
+                reverting = false;
+
+                if (gamepad.right_trigger > 0) specimenScored = true;
+                if (gamepad.left_trigger > 0) specimenScored = false;
+                if (specimenScored) robot.confirmSpecimen(); else robot.raiseSlider();
+
+                if (gamepad.left_bumper && !gamepad.left_bumper) {
+                    state = State.TRANSITION_TO_SCORING_CHAMBER;
+                    reverting = true;
+                    timer1.reset();
+                }
+
+                if (gamepad.right_bumper && !lastGamepad.right_bumper) {
+                    state = State.RETURNING;
+                    timer1.reset();
+                    continue;
+                }
+            }
+
             if (state == State.RETURNING) {
                 robot.intake.pwmEnable();
                 robot.intake.setRaised();
-                intakeControls.call();
+                if (robot.scoringMode.equals("Basket")) intakeControls.call();
 
                 if (reverting) {
-                    state = State.TRANSITION_TO_SCORING;
+                    state = State.TRANSITION_TO_SCORING_BASKET;
                     reverting = false;
                     continue;
                 } else {
@@ -240,7 +317,7 @@ public class TeleoperatedV2 extends LinearOpMode {
 
                 if (gamepad.cross) fullTransferQueued = true;
                 if (gamepad.triangle) quickTransferQueued = true;
-                if (gamepad.options) {fullTransferQueued = false; quickTransferQueued = false;}
+                if (gamepad.square) {fullTransferQueued = false; quickTransferQueued = false;}
 
                 if (gamepad.left_bumper && !lastGamepad.left_bumper) reverting = true;
             }
@@ -274,13 +351,14 @@ public class TeleoperatedV2 extends LinearOpMode {
                 else if (resultant2 == target) pivot = Math.toRadians(-smallerAngle);
             }
 
+            if (gamepad.share) robot.scoringMode = "Basket";
+            if (gamepad.options) robot.scoringMode = "Chamber";
+
             robot.drivetrain.remote(vertical, horizontal, pivot, heading);
             telemetry.addData("STATE", state);
-            telemetry.addData("BEST_COLOUR", robot.bestColour());
+            telemetry.addData("MODE", robot.scoringMode + " | " + robot.scoringHeight);
             telemetry.addLine();
-            telemetry.addData("angle nowt", Math.toDegrees(heading));
-            telemetry.addData("align target", target);
-            telemetry.addData("result", Math.toDegrees(pivot));
+            telemetry.addData("Sliders", robot.sliders.getCurrentPosition());
             telemetry.update();
         }
     }
@@ -292,8 +370,10 @@ public class TeleoperatedV2 extends LinearOpMode {
         INTAKE_READY,
         TRANSFER_TRANSITION,
         TRANSFERRING,
-        TRANSITION_TO_SCORING,
-        SCORING_READY,
+        TRANSITION_TO_SCORING_BASKET,
+        TRANSITION_TO_SCORING_CHAMBER,
+        SCORING_READY_BASKET,
+        SCORING_READY_CHAMBER,
         RETURNING
     }
 }
