@@ -282,7 +282,7 @@ public class TeleoperatedV2 extends LinearOpMode {
                 if (gamepad.left_trigger > 0) specimenScored = false;
                 if (specimenScored) robot.confirmSpecimen(); else robot.raiseSlider();
 
-                if (gamepad.left_bumper && !gamepad.left_bumper) {
+                if (gamepad.left_bumper && !lastGamepad.left_bumper) {
                     state = State.TRANSITION_TO_SCORING_CHAMBER;
                     reverting = true;
                     timer1.reset();
@@ -299,6 +299,7 @@ public class TeleoperatedV2 extends LinearOpMode {
                 robot.intake.pwmEnable();
                 robot.intake.setRaised();
                 if (robot.scoringMode.equals("Basket")) intakeControls.call();
+                if (robot.scoringMode.equals("Chamber")) robot.intakeOff();
 
                 if (reverting) {
                     state = State.TRANSITION_TO_SCORING_BASKET;
@@ -359,6 +360,8 @@ public class TeleoperatedV2 extends LinearOpMode {
             telemetry.addData("MODE", robot.scoringMode + " | " + robot.scoringHeight);
             telemetry.addLine();
             telemetry.addData("Sliders", robot.sliders.getCurrentPosition());
+            telemetry.addData("Pivot", pivot);
+            telemetry.addData("Target", target);
             telemetry.update();
         }
     }
