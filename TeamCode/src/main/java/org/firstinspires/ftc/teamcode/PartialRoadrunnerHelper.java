@@ -22,6 +22,7 @@ public class PartialRoadrunnerHelper {
 
     private double integral1, integral2, integral3;
     private double lastError1, lastError2, lastError3;
+    private boolean limit;
 
     public PartialRoadrunnerHelper(SampleMecanumDrive drivetrain, JoystickMethod method) {
         drive = drivetrain;
@@ -35,6 +36,7 @@ public class PartialRoadrunnerHelper {
         toleranceX = 0.4;
         toleranceY = 0.4;
         toleranceH = Math.toRadians(1.00);
+        limit = true;
     }
 
     public void setPIDCoefficients(Axis axis, double kP, double kI, double kD) {
@@ -104,6 +106,11 @@ public class PartialRoadrunnerHelper {
     public double getAbsErrorHeadingDegrees() {return Math.abs(getErrorHeadingDegrees());}
     public double getAbsErrorHeadingRadians() {return Math.abs(getErrorHeadingRadians());}
 
+    public void enablePowerLimit(boolean v) {limit = v;}
+    public void enablePowerLimit() {enablePowerLimit(true);}
+    public void disablePowerLimit() {enablePowerLimit(false);}
+    public boolean getPowerLimitStatus() {return limit;}
+
     public boolean isInPosition() {
         return (getAbsErrorX() <= toleranceX)
                 && (getAbsErrorY() <= toleranceY)
@@ -133,10 +140,10 @@ public class PartialRoadrunnerHelper {
         if ((Math.abs(leftX) > 0.5 || Math.abs(leftY) > 0.5) && leftX != 0 && leftY != 0) {
             if (Math.abs(leftY) > Math.abs(leftX)) {
                 leftX *= Math.abs(0.5 / leftY);
-                if (leftY > 0) leftY = 0.5; else leftY = -0.5;
+                if (limit) {if (leftY > 0) leftY = 0.5; else leftY = -0.5;}
             } else {
                 leftY *= Math.abs(0.5 / leftX);
-                if (leftX > 0) leftX = 0.5; else leftX = -0.5;
+                if (limit) {if (leftX > 0) leftX = 0.5; else leftX = -0.5;}
             }
         }
 

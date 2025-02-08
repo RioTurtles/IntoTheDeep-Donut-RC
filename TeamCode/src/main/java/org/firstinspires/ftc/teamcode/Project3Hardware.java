@@ -135,8 +135,8 @@ public class Project3Hardware extends RobotTemplate {
             intakeLR.setPwmDisable();
         }
 
-        public void setIntake() {synchronous(0.06, "intake", false);}
-        public void setExtended() {synchronous(0.077, "extended", false);}
+        public void setIntake() {synchronous(0.05, "intake", false);}
+        public void setExtended() {synchronous(0.06, "extended", false);}
         public void setTransfer() {synchronous(0.56, "transfer", true);}
         public void setRaised() {synchronous(0.5, "raised", true);}
     }

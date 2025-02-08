@@ -326,8 +326,8 @@ public class TeleoperatedV2 extends LinearOpMode {
             if (gamepad.touchpad) robot.resetIMUYaw();
             if (operator.dpad_up) robot.scoringHeight = "High";
             if (operator.dpad_down) robot.scoringHeight = "Low";
-//            if (operator.dpad_left) robot.scoringMode = "Bucket";
-//            if (operator.dpad_right) robot.scoringMode = "Chamber";
+            if (operator.dpad_left) robot.scoringMode = "Bucket";
+            if (operator.dpad_right) robot.scoringMode = "Chamber";
 
             // Align to targets
             if (gamepad.dpad_up) target = 0.0;
