@@ -1,11 +1,16 @@
 package org.firstinspires.ftc.teamcode.robottemplate;
 
+import androidx.annotation.NonNull;
+
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 public class SingleMotorSystem implements RobotSubsystemTemplate {
     final private DcMotor motor;
@@ -31,6 +36,28 @@ public class SingleMotorSystem implements RobotSubsystemTemplate {
 
     public void addPreset(Object key, int value) {presets.put(key, value);}
     public void removePreset(Object key) {presets.remove(key);}
+
+    public <E extends Enum<E>> void addPresets(@NonNull Class<E> enumeration) {
+        for (@NonNull E constant : enumeration.getEnumConstants()) {
+            // Get method via reflection
+            Method method;
+            try {method = constant.getClass().getMethod("get");}
+            catch (NoSuchMethodException e) {
+                throw new IllegalArgumentException("Cannot find getter methods for class " +
+                        constant.getClass().getCanonicalName() + "; did you implement " +
+                        GettableEnum.class.getName() + " ?");
+            }
+
+            // Run method and get its result, while catching exceptions
+            int result;
+            try {result = (int) Objects.requireNonNull(method.invoke(constant));}
+            catch (IllegalAccessException | InvocationTargetException e) {
+                throw new RuntimeException(e.getMessage());
+            }
+
+            addPreset(constant, result);
+        }
+    }
 
     public void setSpeed(double speed) {this.speed = speed;}
     public double getSpeed() {return speed;}
