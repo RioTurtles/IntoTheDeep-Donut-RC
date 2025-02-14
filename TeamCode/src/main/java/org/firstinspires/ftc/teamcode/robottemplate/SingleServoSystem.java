@@ -43,8 +43,8 @@ public class SingleServoSystem implements RobotSubsystemTemplate {
             }
 
             // Run method and get its result, while catching exceptions
-            int result;
-            try {result = (int) Objects.requireNonNull(method.invoke(constant));}
+            double result;
+            try {result = (double) Objects.requireNonNull(method.invoke(constant));}
             catch (IllegalAccessException | InvocationTargetException e) {
                 throw new RuntimeException(e.getMessage());
             }

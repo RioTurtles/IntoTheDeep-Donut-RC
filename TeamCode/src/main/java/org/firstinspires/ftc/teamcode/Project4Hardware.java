@@ -6,7 +6,6 @@ import com.qualcomm.robotcore.hardware.CRServoImplEx;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 
 import org.firstinspires.ftc.teamcode.robottemplate.DualMotorSystem;
@@ -45,8 +44,6 @@ public class Project4Hardware extends RobotTemplate {
         sliders = new DualMotorSystem("sliderL", "f", "sliderR", "r");
 
         intake.setDirection(DcMotorSimple.Direction.FORWARD);  // TODO: verify direction
-        intakeL.setDirection(Servo.Direction.FORWARD);
-        intakeR.setDirection(Servo.Direction.FORWARD);
 
 //        sliders.addPreset(SliderPresets.BASKET_HIGH, 0);
 //        sliders.addPreset(SliderPresets.RETRACT_CHAMBER, 410);
@@ -83,13 +80,15 @@ public class Project4Hardware extends RobotTemplate {
     public enum SliderPreset implements GettableEnum {
         RETRACT_BASKET(0),
         RETRACT_CHAMBER(410),
+        RETRACT_CHAMBER_LIFT(580),
         BASKET_LOW(1700),
         BASKET_HIGH(2750),
         CHAMBER_LOW(830),
         CHAMBER_LOW_SCORE(200),
         CHAMBER_HIGH(1950),
         CHAMBER_HIGH_SCORE(1200),
-        ASCENT(1900);
+        ASCENT(1900),
+        ASCENT_INVERSE(-((int) ASCENT.get()));
 
         private final int value;
         SliderPreset(int value) {this.value = value;}
@@ -97,9 +96,8 @@ public class Project4Hardware extends RobotTemplate {
     }
 
     public enum IntakeArmPreset implements GettableEnum {
-        INTAKE(0.05),
-        EXTENDED(0.06),
-        TRANSFER(0.6);
+        INTAKE(0.15),
+        TRANSFER(1.0);
 
         private final double value;
         IntakeArmPreset(double value) {this.value = value;}
@@ -108,7 +106,8 @@ public class Project4Hardware extends RobotTemplate {
 
     public enum LinearExtensionPreset implements GettableEnum {
         EXTENDED(0.5),
-        RETRACTED(0);
+        INTAKE_RETRACTED(0.15),
+        FULLY_RETRACTED(0);
 
         private final double value;
         LinearExtensionPreset(double value) {this.value = value;}
@@ -116,11 +115,11 @@ public class Project4Hardware extends RobotTemplate {
     }
 
     public enum BucketPreset implements GettableEnum {
-        TRANSFER(0.0),
-        LIFT(0.1),
-        RAISED(0.1),
-        READY(0.15),
-        SCORE(0.55);
+        TRANSFER(0.05),
+        LIFT(0.2),
+        RAISED(0.2),
+        READY(0.25),
+        SCORE(0.65);
 
         private final double value;
         BucketPreset(double value) {this.value = value;}
@@ -128,9 +127,16 @@ public class Project4Hardware extends RobotTemplate {
     }
 
     public void setSlider(SliderPreset v) {sliders.setPositionPreset(v);}
-    public void setIntakeArm(IntakeArmPreset v) {intakeArm.setPositionPreset(v);}
     public void setLinearExtension(LinearExtensionPreset v) {linearExtension.setPositionPreset(v);}
     public void setBucket(BucketPreset v) {bucket.setPositionPreset(v);}
+
+    public void setIntakeArm(IntakeArmPreset v) {
+        switch (v) {
+            case INTAKE: intakeUp = false; break;
+            case TRANSFER: intakeUp = true; break;
+        }
+        intakeArm.setPositionPreset(v);
+    }
 
     public void intakeOn() {
         intake.setPower(1);
@@ -164,11 +170,16 @@ public class Project4Hardware extends RobotTemplate {
         }
     }
 
-    public void raiseSlider() {sliders.setPositionPreset(getSliderPreset());}
-    public void retractSlider() {
-        scoringHeight = ScoringHeight.RETRACT;
-        sliders.setPositionPreset("Retract" + scoringMode);
+    public void raiseSlider() {
+        sliders.setPositionPreset(getSliderPreset());
+        if (scoringHeight == ScoringHeight.RETRACT) sliders.setSpeed(0);
     }
+
+    public void retractSlider() {
+        sliders.setPositionPreset(SliderPreset.valueOf("RETRACT_" + scoringMode));
+        sliders.setSpeed(0);
+    }
+
     public void confirmSpecimen() {specimenConfirmed = true;}
     public void denySpecimen() {specimenConfirmed = false;}
 }
