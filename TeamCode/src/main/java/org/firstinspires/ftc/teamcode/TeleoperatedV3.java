@@ -27,6 +27,8 @@ public class TeleoperatedV3 extends LinearOpMode {
         State state = State.INIT;
         ElapsedTime timer1 = new ElapsedTime();
 
+        boolean returning = false;
+
         waitForStart();
         while (opModeIsActive()) {
             lastGamepad.copy(gamepad); gamepad.copy(gamepad1);
@@ -41,18 +43,18 @@ public class TeleoperatedV3 extends LinearOpMode {
             double heading = robot.getIMUYaw();
 
             basicIntakeControls = () -> {
-                if (left_bumper) {if (robot.intakeOn) robot.intakeOff(); else robot.intakeOn();}
-
-                if (right_bumper) {
-                    if (robot.intakeUp) {
-                        robot.setIntakeArm(IntakeArmPreset.INTAKE);
-                        if (robot.linearExtension.currentPreset == LinearExtensionPreset.EXTENDED)
-                            robot.setLinearExtension(LinearExtensionPreset.EXTENDED);
-                        else robot.setLinearExtension(LinearExtensionPreset.INTAKE_RETRACTED);
-                    } else {
+                if (left_bumper) {
+                    if (robot.intakeOn) {
+                        robot.intakeOff();
                         robot.setIntakeArm(IntakeArmPreset.TRANSFER);
-                        robot.setLinearExtension(LinearExtensionPreset.FULLY_RETRACTED);
+                    } else {
+                        robot.intakeOn();
+                        robot.setIntakeArm(IntakeArmPreset.INTAKE);
                     }
+                }
+
+                if (left_trigger) {
+                    if (robot.intakeOn) robot.intakeOff(); else robot.intakeOn();
                 }
 
                 if (gamepad.circle && !lastGamepad.circle) {
@@ -68,6 +70,7 @@ public class TeleoperatedV3 extends LinearOpMode {
                 }
 
                 robot.retractSlider();
+                robot.unpowerSlider();
                 robot.setBucket(BucketPreset.TRANSFER);
                 robot.setIntakeArm(IntakeArmPreset.TRANSFER);
                 robot.setLinearExtension(LinearExtensionPreset.FULLY_RETRACTED);
@@ -80,6 +83,8 @@ public class TeleoperatedV3 extends LinearOpMode {
                 robot.setLinearExtension(LinearExtensionPreset.INTAKE_RETRACTED);
                 robot.setIntakeArm(IntakeArmPreset.INTAKE);
                 robot.intakeOn();
+
+                if (robot.sliders.isInPosition()) robot.unpowerSlider();
                 state = State.INTAKE_SAMPLE;
             }
 
@@ -88,10 +93,16 @@ public class TeleoperatedV3 extends LinearOpMode {
                 robot.retractSlider();
                 basicIntakeControls.call();
 
-                // On start of right trigger hold
-                if (gamepad.right_trigger > 0) state = State.INTAKE_EXTEND;
+                if (robot.sliders.isInPosition()) robot.unpowerSlider();
 
-                if (gamepad.triangle) {
+                // On start of right trigger hold
+                if (gamepad.right_trigger > 0) {
+                    state = State.INTAKE_EXTEND;
+                    robot.intakeOn();
+                    robot.setIntakeArm(IntakeArmPreset.INTAKE);
+                }
+
+                if (right_bumper) {
                     state = State.TRANSFER;
                     timer1.reset();
                 }
@@ -113,9 +124,9 @@ public class TeleoperatedV3 extends LinearOpMode {
             }
 
             else if (state == State.TRANSFER_EXTEND) {
-                if (timer1.milliseconds() > 1400)
+                if (timer1.milliseconds() > 1600)
                     state = State.TRANSFERRED_AWAIT_SAMPLE;
-                if (timer1.milliseconds() > 400)  // Adjust transfer duration
+                if (timer1.milliseconds() > 600)  // Adjust transfer duration
                     robot.intakeOn();
                 else {
                     robot.intakeOff();
@@ -124,7 +135,7 @@ public class TeleoperatedV3 extends LinearOpMode {
                 }
 
                 if (left_bumper) {
-                    state = State.TRANSFER_EXTEND;
+                    state = State.INTAKE_EXTEND;
                     robot.setIntakeArm(IntakeArmPreset.INTAKE);
                     robot.intakeOn();
                 }
@@ -151,6 +162,7 @@ public class TeleoperatedV3 extends LinearOpMode {
             // SPECIMEN INTAKE SUPERSTATE
             else if (state == State.PRE_INTAKE_SPECIMEN) {
                 robot.setSlider(SliderPreset.RETRACT_CHAMBER);
+                robot.powerSlider();
                 robot.intakeOff();
                 robot.setIntakeArm(IntakeArmPreset.TRANSFER);
                 robot.setLinearExtension(LinearExtensionPreset.FULLY_RETRACTED);
@@ -163,7 +175,6 @@ public class TeleoperatedV3 extends LinearOpMode {
                 if (right_bumper) state = State.LIFT;
             }
 
-            // TRANSFER SUPERSTATE
             else if (state == State.TRANSFERRED_AWAIT_SAMPLE) {
                 robot.retractSlider();
                 robot.setLinearExtension(LinearExtensionPreset.FULLY_RETRACTED);
@@ -171,11 +182,44 @@ public class TeleoperatedV3 extends LinearOpMode {
 
                 if (left_bumper) state = State.PRE_INTAKE_SAMPLE;
                 if (right_bumper) state = State.LIFT;
-                if (gamepad.circle) robot.intakeOn(); else robot.intakeOff();
+
+                if (gamepad.circle) robot.intakeOn();
+                else if (gamepad.triangle) robot.intakeReverse(); else robot.intakeOff();
             }
 
+            // TRANSFER SUPERSTATE
             else if (state == State.LIFT) {
-                robot.raiseSlider();
+                robot.setIntakeArm(IntakeArmPreset.CLEARANCE);
+                robot.powerSlider();
+                if (left_bumper) returning = false;
+                if (right_bumper) returning = true;
+
+                if (!returning) {
+                    robot.raiseSlider();
+                    robot.setBucket(BucketPreset.LIFT);
+                } else robot.retractSlider();
+
+                if (robot.sliders.isInPosition() || gamepad.options) {
+                    if (returning) {
+                        state = State.TRANSFERRED_AWAIT_SAMPLE;
+                        robot.setIntakeArm(IntakeArmPreset.TRANSFER);
+                        timer1.reset();
+                    } else {
+                        state = State.SCORING_SAMPLE;
+                        timer1.reset();
+                    }
+                }
+            }
+
+            // SCORING SUPERSTATE
+            else if (state == State.SCORING_SAMPLE) {
+                if (left_bumper) {
+                    state = State.LIFT;
+                    returning = true;
+                }
+
+                if (gamepad.right_trigger > 0) robot.setBucket(BucketPreset.SCORE);
+                else robot.setBucket(BucketPreset.READY);
             }
 
             if (gamepad.touchpad) robot.resetIMUYaw();
@@ -191,7 +235,7 @@ public class TeleoperatedV3 extends LinearOpMode {
             robot.drivetrain.remote(vertical, horizontal, pivot, heading);
             telemetry.addData("State", state);
             telemetry.addLine();
-            telemetry.addData("Intake Up", robot.intakeUp);
+            telemetry.addData("Slider Preset", robot.sliders.currentPreset);
             telemetry.update();
         }
     }
@@ -208,7 +252,8 @@ public class TeleoperatedV3 extends LinearOpMode {
         TRANSFER_EXTEND,
         TRANSFERRED_AWAIT_SAMPLE,
         TRANSFERRED_AWAIT_SPECIMEN (TRANSFERRED_AWAIT_SAMPLE),
-        LIFT;
+        LIFT,
+        SCORING_SAMPLE;
 
         final @Nullable State counterpart;
         State(@Nullable State counterpart) {this.counterpart = counterpart;}

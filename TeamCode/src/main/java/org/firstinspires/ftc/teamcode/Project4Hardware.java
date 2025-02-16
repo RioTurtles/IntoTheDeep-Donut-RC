@@ -96,7 +96,8 @@ public class Project4Hardware extends RobotTemplate {
     }
 
     public enum IntakeArmPreset implements GettableEnum {
-        INTAKE(0.15),
+        INTAKE(0.67),
+        CLEARANCE(0.8),
         TRANSFER(1.0);
 
         private final double value;
@@ -172,13 +173,16 @@ public class Project4Hardware extends RobotTemplate {
 
     public void raiseSlider() {
         sliders.setPositionPreset(getSliderPreset());
+        sliders.setSpeed(1);
         if (scoringHeight == ScoringHeight.RETRACT) sliders.setSpeed(0);
     }
 
     public void retractSlider() {
         sliders.setPositionPreset(SliderPreset.valueOf("RETRACT_" + scoringMode));
-        sliders.setSpeed(0);
     }
+
+    public void powerSlider() {sliders.setSpeed(1);}
+    public void unpowerSlider() {sliders.setSpeed(0);}
 
     public void confirmSpecimen() {specimenConfirmed = true;}
     public void denySpecimen() {specimenConfirmed = false;}
